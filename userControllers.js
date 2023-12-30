@@ -1,21 +1,26 @@
 const User = require("./userModel");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 const registerUser = async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email && !password) {
-    return res.status(400).json({ error: "Both fields are missing" });
-  } else if (!email) {
-    return res.status(400).json({ error: "'Email' field is missing" });
-  } else if (!password) {
-    return res.status(400).json({ error: "'Password' field is missing" });
+  if (!email || !password) {
+    return res.status(400).json({ error: "Both email and password are required" });
   }
 
   try {
-    const user = await User.findOne({ email: email, password: password });
+    const user = await User.findOne({ email: email });
     if (!user) {
-      const newUser = await User.create({ email, password });
-      return res.status(200).json({ response: "User was successfully created" });
+      // Generate a salt
+      try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPass = await bcrypt.hash(password, salt);
+        const newUser = await User.create({ email, hashedPass, salt });
+        return res.status(200).json({ response: "User was successfully created" });
+      } catch (error) {
+        throw error;
+      }
     } else {
       return res.status(400).json({ response: "User with this email already exists" });
     }
@@ -27,59 +32,21 @@ const registerUser = async (req, res) => {
 const deleteUser = async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email && !password) {
-    return res.status(400).json({ error: "Both fields are missing" });
-  } else if (!email) {
-    return res.status(400).json({ error: "'Email' field is missing" });
-  } else if (!password) {
-    return res.status(400).json({ error: "'Password' field is missing" });
+  if (!email || !password) {
+    return res.status(400).json({ error: "Both email and password are required" });
   }
+
   try {
-    const user = await User.findOneAndDelete({ email: email });
+    const user = await User.findOne({ email: email });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
-    } else {
-      return res.status(200).json({ response: "User was successfully deleted" });
     }
-  } catch (error) {
-    return res.status(400).json({ error: error.message });
-  }
-};
-
-const updateUser = async (req, res) => {
-  const { oEmail, oPassword, nEmail, nPassword } = req.body;
-
-  if (!oEmail && !oPassword) {
-    return res.status(400).json({ error: "Both fields are missing" });
-  } else if (!oEmail) {
-    return res.status(400).json({ error: "'Email' field is missing" });
-  } else if (!oPassword) {
-    return res.status(400).json({ error: "'Password' field is missing" });
-  }
-
-  let updateObject = {};
-
-  if (nEmail) {
-    updateObject.email = nEmail;
-  }
-
-  if (nPassword) {
-    updateObject.password = nPassword;
-  }
-
-  if (Object.keys(updateObject).length === 0) {
-    return res.status(400).json({ error: "Fields to update are missing" });
-  }
-
-  let user;
-
-  try {
-    user = await User.findOneAndUpdate({ email: oEmail }, updateObject);
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    const arguedPassword = await bcrypt.hash(password, user.salt);
+    if (arguedPassword === user.hashedPass) {
+      const user = await User.findOneAndDelete({ email: email });
+      return res.status(200).json({ response: "User was successfully deleted" });
     } else {
-      return res.status(200).json({ response: "User was successfully updated" });
+      return res.status(404).json({ error: "Unable to authenticate" });
     }
   } catch (error) {
     return res.status(400).json({ error: error.message });
@@ -89,24 +56,34 @@ const updateUser = async (req, res) => {
 const verifyUser = async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email && !password) {
-    return res.status(400).json({ error: "Both fields are missing" });
-  } else if (!email) {
-    return res.status(400).json({ error: "'Email' field is missing" });
-  } else if (!password) {
-    return res.status(400).json({ error: "'Password' field is missing" });
+  if (!email || !password) {
+    return res.status(400).json({ error: "Both email and password are required" });
   }
 
   try {
-    const user = await User.findOne({ email: email, password: password });
+    const user = await User.findOne({ email: email });
+
     if (!user) {
-      return res.status(404).json({ error: "One or more fields are incorrect" });
-    } else {
-      return res.status(200).json({ response: "Login successful" });
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    //Check that passwords match
+    try {
+      const arguedPassword = await bcrypt.hash(password, user.salt);
+      if (arguedPassword === user.hashedPass) {
+        const token = jwt.sign({ userId: user._id }, "your-secret-key", {
+          expiresIn: "1h",
+        });
+        return res.status(200).json({ token });
+      } else {
+        return res.status(404).json({ authenticated: false });
+      }
+    } catch (error) {
+      throw error;
     }
   } catch (error) {
-    return res.status(400).json({ error: error.message });
+    return res.status(400).json({ authenticated: false, error: error.message });
   }
 };
 
-module.exports = { registerUser, deleteUser, updateUser, verifyUser };
+module.exports = { registerUser, deleteUser, verifyUser };

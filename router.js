@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { registerUser, deleteUser, updateUser, verifyUser } = require("./userControllers");
+const { registerUser, deleteUser, verifyUser } = require("./userControllers");
 
 // Create user
 router.post("/user/register", registerUser);
@@ -8,10 +8,7 @@ router.post("/user/register", registerUser);
 //Delete User
 router.delete("/user/delete", deleteUser);
 
-//Update credentials
-router.patch("/user/update", updateUser);
-
 //Validate credentials
-router.get("/sign-in", verifyUser);
+router.get("/user/verify", verifyUser);
 
 module.exports = router;
