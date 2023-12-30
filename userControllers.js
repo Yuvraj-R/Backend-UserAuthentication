@@ -1,6 +1,8 @@
 const User = require("./userModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+require("dotenv").config();
+const verifyToken = require("./verifyToken");
 
 const registerUser = async (req, res) => {
   const { email, password } = req.body;
@@ -30,19 +32,12 @@ const registerUser = async (req, res) => {
 };
 
 const deleteUser = async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Both email and password are required" });
+  const { token, email } = req.body;
+  if (!token) {
+    return res.status(404).json({ error: "No token provided" });
   }
-
   try {
-    const user = await User.findOne({ email: email });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    const arguedPassword = await bcrypt.hash(password, user.salt);
-    if (arguedPassword === user.hashedPass) {
+    if (verifyToken(token)) {
       const user = await User.findOneAndDelete({ email: email });
       return res.status(200).json({ response: "User was successfully deleted" });
     } else {
@@ -71,8 +66,8 @@ const verifyUser = async (req, res) => {
     try {
       const arguedPassword = await bcrypt.hash(password, user.salt);
       if (arguedPassword === user.hashedPass) {
-        const token = jwt.sign({ userId: user._id }, "your-secret-key", {
-          expiresIn: "1h",
+        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET_KEY, {
+          expiresIn: "30s",
         });
         return res.status(200).json({ token });
       } else {
