@@ -23,7 +23,7 @@ const registerUser = async (req, res) => {
         throw error;
       }
     } else {
-      return res.status(400).json({ response: "User with this email already exists" });
+      return res.status(400).json({ error: "User with this email already exists" });
     }
   } catch (error) {
     return res.status(400).json({ error: error.message });

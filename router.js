@@ -9,9 +9,9 @@ router.post("/user/register", registerUser);
 router.delete("/user/delete", deleteUser);
 
 //Validate credentials
-router.get("/user/sign-in", verifyUser);
+router.post("/user/sign-in", verifyUser);
 
 //Authenticate JWT Token
-router.get("/user/auth", authenticateToken);
+router.post("/user/auth", authenticateToken);
 
 module.exports = router;
